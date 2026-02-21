@@ -10,37 +10,6 @@ Automated Claude Code runner designed for use with Claude Code subscription plan
 
 `autoclaude` launches `claude` with `--dangerously-skip-permissions` (yolo mode), streams its JSON output, and monitors for rate limit events. When a usage limit is hit, it reads the reset timestamp from the event stream, sleeps until 2 minutes after the reset, then resumes the same session automatically. This repeats until Claude exits cleanly.
 
-## Installation
-
-### Homebrew
-
-```bash
-brew tap evanisnor/autoclaude
-brew install autoclaude
-```
-
-Or in one step:
-
-```bash
-brew install evanisnor/autoclaude/autoclaude
-```
-
-### Manual
-
-Clone the repo and run the script directly:
-
-```bash
-git clone https://github.com/evanisnor/autoclaude.git
-cd autoclaude
-./autoclaude
-```
-
-## Requirements
-
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed (default path: `/usr/local/bin/claude`)
-- `jq`
-- `bash` 4+
-
 ## Usage
 
 ```bash
@@ -60,6 +29,25 @@ autoclaude --prompt my-prompt.md  # Use a specific prompt file
 | `--continue` | Pass `--continue` to Claude to resume the most recent conversation |
 | `--resume` | Resume using the session ID saved in `.autoclaude/session_id` |
 | `--prompt <file>` | Load the prompt from the given file instead of the default location |
+
+## Installation
+
+```bash
+brew tap evanisnor/autoclaude
+brew install autoclaude
+```
+
+Or in one step:
+
+```bash
+brew install evanisnor/autoclaude/autoclaude
+```
+
+## Requirements
+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed (default path: `/usr/local/bin/claude`)
+- `jq`
+- `bash` 4+
 
 ## Configuration
 
