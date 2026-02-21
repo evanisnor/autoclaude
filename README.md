@@ -4,6 +4,8 @@ Automated Claude Code runner designed for use with Claude Code subscription plan
 
 > ⚠️ **Security advisory:** This tool runs Claude with all permission prompts disabled. Claude can read and write files, run shell commands, and make network requests without confirmation. Read the [Security Considerations](#security-considerations) section before use.
 
+![autoclaude running in a terminal](dist/terminal.png)
+
 ## How It Works
 
 `autoclaude` launches `claude` with `--dangerously-skip-permissions` (yolo mode), streams its JSON output, and monitors for rate limit events. When a usage limit is hit, it reads the reset timestamp from the event stream, sleeps until 2 minutes after the reset, then resumes the same session automatically. This repeats until Claude exits cleanly.
