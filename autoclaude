@@ -15,6 +15,7 @@ set -euo pipefail
 #   ./autoclaude.sh --continue             # Continue the most recent session
 #   ./autoclaude.sh --resume               # Resume the saved session ID
 #   ./autoclaude.sh --prompt my-prompt.md  # Use a custom prompt file
+#   ./autoclaude.sh --path-to-claude /path/to/claude  # Override claude binary location
 # ===========================================================================
 
 PROJECT_DIR="$PWD"
@@ -24,7 +25,7 @@ SESSION_FILE="$LOG_DIR/session_id"
 SESSION_EVENTS="$LOG_DIR/last_session.jsonl"
 RUN_STATE="$LOG_DIR/run_state"
 
-CLAUDE_BIN="${CLAUDE_BIN:-/usr/local/bin/claude}"
+CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 MODEL="sonnet"
 
 CONFIG_DIR="$PROJECT_DIR/autoclaude"
@@ -124,14 +125,31 @@ main() {
 EOF
     local mode="new"
     local prompt_path=""
+    local path_to_claude=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --continue) mode="continue"; shift ;;
-            --resume)   mode="resume";   shift ;;
-            --prompt)   prompt_path="${2:-}"; shift 2 ;;
-            *)          shift ;;
+            --continue)           mode="continue";                    shift ;;
+            --resume)             mode="resume";                      shift ;;
+            --prompt)             prompt_path="${2:-}";               shift 2 ;;
+            --prompt=*)           prompt_path="${1#*=}";              shift ;;
+            --path-to-claude)     path_to_claude="${2:-}";            shift 2 ;;
+            --path-to-claude=*)   path_to_claude="${1#*=}";           shift ;;
+            *)                    shift ;;
         esac
     done
+
+    if [[ -n "$path_to_claude" ]]; then
+        CLAUDE_BIN="$path_to_claude"
+    fi
+
+    if ! command -v "$CLAUDE_BIN" &>/dev/null && ! [[ -x "$CLAUDE_BIN" ]]; then
+        if [[ -n "$path_to_claude" ]]; then
+            echo "ERROR: Cannot find claude at '$CLAUDE_BIN'. Check that the path is correct." >&2
+        else
+            echo "ERROR: Cannot find claude on your PATH. Install Claude Code or use --path-to-claude to specify its location." >&2
+        fi
+        exit 1
+    fi
 
     local saved_session=""
     [[ -f "$SESSION_FILE" ]] && saved_session="$(cat "$SESSION_FILE")"

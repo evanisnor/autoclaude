@@ -13,12 +13,13 @@ Automated Claude Code runner designed for use with Claude Code subscription plan
 ## Usage
 
 ```bash
-autoclaude                        # Start a new session
-                                  # Uses `autoclaude/prompt.md` as the prompt
+autoclaude                                    # Start a new session
+                                              # Uses `autoclaude/prompt.md` as the prompt
 
-autoclaude --continue             # Continue the most recent Claude session
-autoclaude --resume               # Resume the session ID saved from a previous run
-autoclaude --prompt my-prompt.md  # Use a specific prompt file
+autoclaude --continue                         # Continue the most recent Claude session
+autoclaude --resume                           # Resume the session ID saved from a previous run
+autoclaude --prompt my-prompt.md             # Use a specific prompt file
+autoclaude --path-to-claude /path/to/claude  # Override the claude binary location
 ```
 
 ### Flags
@@ -29,6 +30,7 @@ autoclaude --prompt my-prompt.md  # Use a specific prompt file
 | `--continue` | Pass `--continue` to Claude to resume the most recent conversation |
 | `--resume` | Resume using the session ID saved in `.autoclaude/session_id` |
 | `--prompt <file>` | Load the prompt from the given file instead of the default location |
+| `--path-to-claude <path>` | Override the path to the `claude` binary (default: `claude` on `PATH`) |
 
 ## Installation
 
@@ -45,7 +47,7 @@ brew install evanisnor/autoclaude/autoclaude
 
 ## Requirements
 
-- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed (default path: `/usr/local/bin/claude`)
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) installed and available on your `PATH` (or pass `--path-to-claude` to specify a location)
 - `jq`
 - `bash` 4+
 
@@ -64,7 +66,7 @@ Create one of these files with the task you want Claude to work on. You can over
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CLAUDE_BIN` | `/usr/local/bin/claude` | Path to the `claude` binary |
+| `CLAUDE_BIN` | `claude` | Path to the `claude` binary. Overridden by `--path-to-claude` at runtime. |
 
 ### Model
 
