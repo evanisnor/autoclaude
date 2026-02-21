@@ -136,10 +136,20 @@ EOF
     local saved_session=""
     [[ -f "$SESSION_FILE" ]] && saved_session="$(cat "$SESSION_FILE")"
 
+    local display_prompt="$prompt_path"
+    if [[ -z "$display_prompt" ]]; then
+        for candidate in "$CONFIG_DIR/prompt.md" "$CONFIG_DIR/prompt.txt"; do
+            if [[ -f "$candidate" ]]; then
+                display_prompt="$candidate"
+                break
+            fi
+        done
+    fi
+
     log "============================================"
     log "autoclaude starting"
     log "  mode:       $mode"
-    log "  prompt:     ${prompt_path:-autoclaude/prompt.{md,txt} (default)}"
+    log "  prompt:     ${display_prompt:-(not found)}"
     log "  session ID: ${saved_session:-(none)}"
     log "  log:        $LOG_FILE"
     log "============================================"
