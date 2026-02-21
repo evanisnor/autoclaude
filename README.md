@@ -121,3 +121,7 @@ If you want to prevent `--dangerously-skip-permissions` from being used at all i
 ```
 
 Note that setting `disableBypassPermissionsMode` will break `autoclaude` entirely — it is intended for environments where you want to prevent autonomous runs altogether.
+
+---
+
+This project is not affiliated with, endorsed by, or sponsored by Anthropic. Claude and Claude Code are trademarks of Anthropic, PBC.
