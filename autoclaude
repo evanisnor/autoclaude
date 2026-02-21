@@ -120,7 +120,7 @@ main() {
  \__,_|\__,_|\__\___/ \___|_|\__,_|\__,_|\__,_|\___(_)
 
  https://github.com/evanisnor/autoclaude
- 
+
 EOF
     local mode="new"
     local prompt_path=""
@@ -133,8 +133,15 @@ EOF
         esac
     done
 
+    local saved_session=""
+    [[ -f "$SESSION_FILE" ]] && saved_session="$(cat "$SESSION_FILE")"
+
     log "============================================"
-    log "autoclaude starting (mode=$mode)"
+    log "autoclaude starting"
+    log "  mode:       $mode"
+    log "  prompt:     ${prompt_path:-autoclaude/prompt.{md,txt} (default)}"
+    log "  session ID: ${saved_session:-(none)}"
+    log "  log:        $LOG_FILE"
     log "============================================"
 
     local PROMPT
