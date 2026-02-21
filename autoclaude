@@ -17,8 +17,7 @@ set -euo pipefail
 #   ./autoclaude.sh --prompt my-prompt.md  # Use a custom prompt file
 # ===========================================================================
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$SCRIPT_DIR"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 LOG_DIR="$PROJECT_DIR/.autoclaude"
 LOG_FILE="$LOG_DIR/autoclaude.log"
 SESSION_FILE="$LOG_DIR/session_id"
