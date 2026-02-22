@@ -2,21 +2,34 @@
 set -euo pipefail
 
 # ===========================================================================
-# autoclaude.sh — Automated Claude Code runner
-#
-# Runs Claude Code in headless mode to build a project. When usage limits
-# are hit, waits for the reset window and resumes automatically.
-#
-# By default, reads the prompt from autoclaude/prompt.md or autoclaude/prompt.txt.
-# Override with -p "prompt text" or --prompt-file path/to/file.
-#
-# Usage:
-#   ./autoclaude                                    # Resume saved session, or start new
-#   ./autoclaude --new                              # Force a new session
-#   ./autoclaude -p "Build the login page"           # Use a text prompt
-#   ./autoclaude --prompt-file my-prompt.md          # Use a custom prompt file
-#   ./autoclaude --path-to-claude /path/to/claude    # Override claude binary location
+# autoclaude — Automated Claude Code runner
+# See usage() below for details.
 # ===========================================================================
+
+usage() {
+    cat <<'USAGE'
+autoclaude — Automated Claude Code runner
+
+Runs Claude Code in headless mode to build a project. When usage limits
+are hit, waits for the reset window and resumes automatically.
+
+Prompt:
+  By default, autoclaude looks for a prompt file at:
+    autoclaude/prompt.md
+    autoclaude/prompt.txt
+
+  You can override this with:
+    -p "prompt text"           Provide a prompt inline
+    --prompt-file <file>       Use a custom prompt file
+
+Usage:
+  ./autoclaude                                    # Resume saved session, or start new
+  ./autoclaude --new                              # Force a new session
+  ./autoclaude -p "Build the login page"           # Use a text prompt
+  ./autoclaude --prompt-file my-prompt.md          # Use a custom prompt file
+  ./autoclaude --path-to-claude /path/to/claude    # Override claude binary location
+USAGE
+}
 
 PROJECT_DIR="$PWD"
 LOG_DIR="$PROJECT_DIR/.autoclaude"
@@ -55,6 +68,8 @@ resolve_prompt() {
 
     if [[ -z "$prompt_file" || ! -f "$prompt_file" ]]; then
         echo "ERROR: No prompt provided. Use -p \"text\", --prompt-file <file>, or create $CONFIG_DIR/prompt.md" >&2
+        echo >&2
+        usage >&2
         exit 1
     fi
 
@@ -150,6 +165,8 @@ EOF
 
     if [[ -n "$prompt_text" && -n "$prompt_file" ]]; then
         echo "ERROR: Cannot use both -p/--prompt and --prompt-file. Pick one." >&2
+        echo >&2
+        usage >&2
         exit 1
     fi
 
@@ -163,6 +180,8 @@ EOF
         else
             echo "ERROR: Cannot find claude on your PATH. Install Claude Code or use --path-to-claude to specify its location." >&2
         fi
+        echo >&2
+        usage >&2
         exit 1
     fi
 
