@@ -13,11 +13,10 @@ Automated Claude Code runner designed for use with Claude Code subscription plan
 ## Usage
 
 ```bash
-autoclaude                                    # Start a new session
+autoclaude                                    # Resume saved session, or start new
                                               # Uses `autoclaude/prompt.md` as the prompt
 
-autoclaude --continue                         # Continue the most recent Claude session
-autoclaude --resume                           # Resume the session ID saved from a previous run
+autoclaude --new                              # Force a new session (discards saved session ID)
 autoclaude --prompt my-prompt.md             # Use a specific prompt file
 autoclaude --path-to-claude /path/to/claude  # Override the claude binary location
 ```
@@ -26,9 +25,8 @@ autoclaude --path-to-claude /path/to/claude  # Override the claude binary locati
 
 | Flag | Description |
 |------|-------------|
-| *(none)* | Start a fresh session |
-| `--continue` | Pass `--continue` to Claude to resume the most recent conversation |
-| `--resume` | Resume using the session ID saved in `.autoclaude/session_id` |
+| *(none)* | Resume the saved session if one exists, otherwise start fresh |
+| `--new` | Force a new session, discarding any saved session ID |
 | `--prompt <file>` | Load the prompt from the given file instead of the default location |
 | `--path-to-claude <path>` | Override the path to the `claude` binary (default: `claude` on `PATH`) |
 
@@ -79,7 +77,7 @@ The model is set to `sonnet`. Edit the `MODEL` variable near the top of the scri
 | File | Description |
 |------|-------------|
 | `autoclaude.log` | Timestamped log of all runs, tool calls, rate limit events, and session activity |
-| `session_id` | The session ID from the most recent completed run, used by `--resume` |
+| `session_id` | The session ID from the most recent completed run, used for automatic resume |
 | `last_session.jsonl` | Raw stream-json event lines from the last Claude invocation |
 | `run_state` | Transient file written during a run to pass session ID and reset timestamps out of the stream processor subshell |
 

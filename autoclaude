@@ -11,11 +11,10 @@ set -euo pipefail
 # Override with --prompt path/to/file.
 #
 # Usage:
-#   ./autoclaude.sh                        # Start a new session
-#   ./autoclaude.sh --continue             # Continue the most recent session
-#   ./autoclaude.sh --resume               # Resume the saved session ID
-#   ./autoclaude.sh --prompt my-prompt.md  # Use a custom prompt file
-#   ./autoclaude.sh --path-to-claude /path/to/claude  # Override claude binary location
+#   ./autoclaude                           # Resume saved session, or start new
+#   ./autoclaude --new                     # Force a new session
+#   ./autoclaude --prompt my-prompt.md     # Use a custom prompt file
+#   ./autoclaude --path-to-claude /path/to/claude  # Override claude binary location
 # ===========================================================================
 
 PROJECT_DIR="$PWD"
@@ -123,13 +122,12 @@ main() {
  https://github.com/evanisnor/autoclaude
 
 EOF
-    local mode="new"
+    local force_new=false
     local prompt_path=""
     local path_to_claude=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --continue)           mode="continue";                    shift ;;
-            --resume)             mode="resume";                      shift ;;
+            --new)                force_new=true;                      shift ;;
             --prompt)             prompt_path="${2:-}";               shift 2 ;;
             --prompt=*)           prompt_path="${1#*=}";              shift ;;
             --path-to-claude)     path_to_claude="${2:-}";            shift 2 ;;
@@ -153,6 +151,16 @@ EOF
 
     local saved_session=""
     [[ -f "$SESSION_FILE" ]] && saved_session="$(cat "$SESSION_FILE")"
+
+    # Determine mode: resume saved session by default, or start new
+    local mode="new"
+    if [[ "$force_new" == true ]]; then
+        mode="new"
+        saved_session=""
+        rm -f "$SESSION_FILE"
+    elif [[ -n "$saved_session" ]]; then
+        mode="resume"
+    fi
 
     local display_prompt="$prompt_path"
     if [[ -z "$display_prompt" ]]; then
@@ -185,25 +193,14 @@ EOF
         --verbose
     )
 
-    # Set initial resume flags based on mode
+    # Set initial resume flag based on mode
     local resume_flag=""
-    case "$mode" in
-        continue)
-            resume_flag="--continue"
-            log "Continuing most recent session."
-            ;;
-        resume)
-            if [[ -f "$SESSION_FILE" ]]; then
-                resume_flag="--resume $(cat "$SESSION_FILE")"
-                log "Resuming session: $(cat "$SESSION_FILE")"
-            else
-                log "No saved session. Starting new."
-            fi
-            ;;
-        new)
-            log "Starting new session."
-            ;;
-    esac
+    if [[ "$mode" == "resume" && -n "$saved_session" ]]; then
+        resume_flag="--resume $saved_session"
+        log "Resuming session: $saved_session"
+    else
+        log "Starting new session."
+    fi
 
     while true; do
         # Build command with current resume flag
