@@ -80,6 +80,24 @@ resolve_prompt() {
     cat "$prompt_file"
 }
 
+# ---------------------------------------------------------------------------
+# Safety check: verify bypass permissions mode is not disabled
+# ---------------------------------------------------------------------------
+check_bypass_permissions_mode() {
+    local settings_file="$PROJECT_DIR/.claude/settings.json"
+    [[ ! -f "$settings_file" ]] && return 0
+
+    local status
+    status=$(jq -r '.permissions.disableBypassPermissionsMode // empty' "$settings_file" 2>/dev/null || true)
+    if [[ "$status" == "disable" ]]; then
+        echo "ERROR: .claude/settings.json has 'disableBypassPermissionsMode' set to \"disable\"." >&2
+        echo "       autoclaude requires bypass permissions mode to be enabled in order to run" >&2
+        echo "       Claude non-interactively with --dangerously-skip-permissions." >&2
+        echo "       Remove the 'disableBypassPermissionsMode' setting to use autoclaude." >&2
+        exit 1
+    fi
+}
+
 # ===========================================================================
 # Setup
 # ===========================================================================
@@ -188,6 +206,8 @@ EOF
         usage >&2
         exit 1
     fi
+
+    check_bypass_permissions_mode
 
     local saved_session=""
     [[ -f "$SESSION_FILE" ]] && saved_session="$(cat "$SESSION_FILE")"
