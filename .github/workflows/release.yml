@@ -38,7 +38,7 @@ jobs:
           SHA256: ${{ steps.sha.outputs.sha256 }}
           URL: ${{ steps.sha.outputs.url }}
         run: |
-          git clone "https://x-access-token:${TAP_TOKEN}@github.com/evanisnor/homebrew-autoclaude.git" tap
+          git clone "https://x-access-token:${TAP_TOKEN}@github.com/evanisnor/homebrew-tap.git" tap
           cd tap
 
           # Strip leading 'v' for the Homebrew version field

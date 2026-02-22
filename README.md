@@ -9,7 +9,7 @@ Automated Claude Code runner designed for use with Claude Code subscription plan
 ## Getting Started
 
 ```bash
-brew install evanisnor/autoclaude/autoclaude
+brew install evanisnor/tap/autoclaude
 ```
 
 Create a prompt file at `autoclaude/prompt.md` in your project, then run:
