@@ -8,6 +8,7 @@ Things you can do while `autoclaude` works:
 * Reflect on the meaning of life and the mysteries of the universe
 <br />
 <br />
+
 > ⚠️ **Security advisory:** This tool runs Claude with all permission prompts disabled. Claude can read and write files, run shell commands, and make network requests without confirmation. Read the [Security Considerations](#security-considerations) section before use.
 
 ![autoclaude running in a terminal](dist/terminal.png)
