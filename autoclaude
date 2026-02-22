@@ -49,6 +49,13 @@ MODEL="sonnet"
 
 CONFIG_DIR="$PROJECT_DIR/autoclaude"
 
+
+yellow=$'\033[33m'
+red=$'\033[31m'
+green=$'\033[32m'
+reset=$'\033[0m'
+bold=$'\033[1m'
+
 # ---------------------------------------------------------------------------
 # Resolve the prompt: explicit text > explicit file > default file
 # ---------------------------------------------------------------------------
@@ -73,8 +80,7 @@ resolve_prompt() {
     fi
 
     if [[ -z "$prompt_file" || ! -f "$prompt_file" ]]; then
-        echo "ERROR: No prompt provided. Use -p \"text\", --prompt-file <file>, or create $CONFIG_DIR/prompt.md" >&2
-        echo >&2
+        error "No prompt provided. Use -p \"text\", --prompt-file <file>, or create $CONFIG_DIR/prompt.md"
         usage >&2
         exit 1
     fi
@@ -92,11 +98,10 @@ check_bypass_permissions_mode() {
     local status
     status=$(jq -r '.permissions.disableBypassPermissionsMode // empty' "$settings_file" 2>/dev/null || true)
     if [[ "$status" == "disable" ]]; then
-        echo "ERROR: .claude/settings.json has 'disableBypassPermissionsMode' set to \"disable\"." >&2
-        echo "       autoclaude requires bypass permissions mode to be enabled in order to run" >&2
-        echo "       Claude non-interactively with --dangerously-skip-permissions." >&2
-        echo "       Remove the 'disableBypassPermissionsMode' setting to use autoclaude." >&2
-        exit 1
+        error " .claude/settings.json has 'disableBypassPermissionsMode' set to \"disable\".
+       autoclaude requires bypass permissions mode to be enabled in order to run
+       Claude non-interactively with --dangerously-skip-permissions.
+       Remove the 'disableBypassPermissionsMode' setting to use autoclaude."
     fi
 }
 
@@ -145,12 +150,8 @@ check_credential_deny_rules() {
     fi
 
     if [[ ${#missing_rules[@]} -gt 0 ]]; then
-        local yellow=$'\033[33m'
-        local reset=$'\033[0m'
         echo "" >&2
-        echo "  ${yellow}╔══════════════════════════════════════════════════════════════════╗${reset}" >&2
-        echo "  ${yellow}║  ⚠  Security Warning                                             ║${reset}" >&2
-        echo "  ${yellow}╚══════════════════════════════════════════════════════════════════╝${reset}" >&2
+        banner "$yellow" "[!] Security Warning"
         echo "" >&2
         echo "  ${yellow}Your .claude/settings.json is missing deny rules that protect${reset}" >&2
         echo "  ${yellow}credential files from being read by Claude. It is strongly${reset}" >&2
@@ -171,10 +172,56 @@ check_credential_deny_rules() {
 
 mkdir -p "$STATE_DIR"
 
+banner() {
+    local color="${1}"
+    shift
+    local text="${*}"
+    local inner_width=66
+    local pad_width=$((inner_width - 2))
+    local border
+    border=$(printf '═%.0s' $(seq 1 $inner_width))
+
+    echo "  ${color}╔${border}╗${reset}" >&2
+
+    while IFS= read -r line; do
+        # Word-wrap lines exceeding pad_width
+        while (( ${#line} > pad_width )); do
+            local chunk="${line:0:$pad_width}"
+            # Break at the last space within chunk, or hard-break if none
+            if [[ "$chunk" =~ ^(.*)[[:space:]][^[:space:]]*$ ]]; then
+                local break_point=${#BASH_REMATCH[1]}
+                printf "  ${color}║  %-${pad_width}s║${reset}\n" "${line:0:$break_point}" >&2
+                line="${line:$((break_point + 1))}"
+            else
+                printf "  ${color}║  %-${pad_width}s║${reset}\n" "$chunk" >&2
+                line="${line:$pad_width}"
+            fi
+        done
+        printf "  ${color}║  %-${pad_width}s║${reset}\n" "$line" >&2
+    done <<< "$text"
+
+    echo "  ${color}╚${border}╝${reset}" >&2
+}
+
 log() {
     local timestamp
     timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
     echo "[$timestamp] $*" | tee -a "$LOG_FILE"
+}
+
+error() {
+    local exit_code=1
+
+    # If first arg is an integer, use it as exit code
+    if [[ "$1" =~ ^[0-9]+$ ]]; then
+        exit_code="$1"
+        shift
+    fi
+
+    echo >&2
+    log "${red}${bold}ERROR${reset}: $*"
+    echo >&2
+    exit "$exit_code"
 }
 
 # Compute a SHA-256 hash of a file, returning just the hex digest.
@@ -235,7 +282,7 @@ main() {
   __ _ _   _| |_ ___   ___| | __ _ _   _  __| | ___   
  / _\` | | | | __/ _ \\ / __| |/ _\` | | | |/ _\` |/ _ \\  
 | (_| | |_| | || (_) | (__| | (_| | |_| | (_| |  __/_ 
- \__,_|\__,_|\__\___/ \___|_|\__,_|\__,_|\__,_|\___(_) ${VERSION}
+ \__,_|\__,_|\__\___/ \___|_|\__,_|\__,_|\__,_|\___(_) ${red}${VERSION}${reset}
  ${REPO_URL}
 
 EOF
@@ -261,8 +308,7 @@ EOF
     done
 
     if [[ -n "$prompt_text" && -n "$prompt_file" ]]; then
-        echo "ERROR: Cannot use both -p/--prompt and --prompt-file. Pick one." >&2
-        echo >&2
+        error "Cannot use both -p/--prompt and --prompt-file. Pick one."
         usage >&2
         exit 1
     fi
@@ -277,11 +323,10 @@ EOF
 
     if ! command -v "$CLAUDE_BIN" &>/dev/null && ! [[ -x "$CLAUDE_BIN" ]]; then
         if [[ -n "$path_to_claude" ]]; then
-            echo "ERROR: Cannot find claude at '$CLAUDE_BIN'. Check that the path is correct." >&2
+            error "Cannot find claude at '$CLAUDE_BIN'. Check that the path is correct."
         else
-            echo "ERROR: Cannot find claude on your PATH. Install Claude Code or use --path-to-claude to specify its location." >&2
+            error "Cannot find claude on your PATH. Install Claude Code or use --path-to-claude to specify its location."
         fi
-        echo >&2
         usage >&2
         exit 1
     fi
@@ -306,24 +351,22 @@ EOF
     if [[ -n "$prompt_text" ]]; then
         display_prompt="(inline text)"
     elif [[ -n "$prompt_file" ]]; then
-        display_prompt="$prompt_file"
+        display_prompt="${prompt_file#"$PROJECT_DIR/"}"
     else
         for candidate in "$CONFIG_DIR/prompt.md" "$CONFIG_DIR/prompt.txt"; do
             if [[ -f "$candidate" ]]; then
-                display_prompt="$candidate"
+                display_prompt="${candidate#"$PROJECT_DIR/"}"
                 break
             fi
         done
     fi
 
-    log "============================================"
-    log "autoclaude starting"
-    log "  mode:       $mode"
-    log "  model:      $MODEL"
-    log "  prompt:     ${display_prompt:-(not found)}"
-    log "  session ID: ${saved_session:-(none)}"
-    log "  log:        $LOG_FILE"
-    log "============================================"
+    banner "$green" "autoclaude starting
+  mode:       $mode
+  model:      $MODEL
+  session ID: ${saved_session:-(none)}
+  prompt:     ${display_prompt:-(not found)}
+  log:        ${LOG_FILE#"$PROJECT_DIR/"}"
 
     # Resolve the prompt file path so we can watch it for changes across sessions.
     # Only set for file-based prompts; empty for inline -p text.
@@ -469,8 +512,7 @@ EOF
                 resume_flag="--continue"
             fi
         elif [[ $exit_code -ne 0 ]]; then
-            log "Claude exited with error (exit code: $exit_code). See $SESSION_EVENTS for details."
-            exit 1
+            error "$exit_code" "Claude exited with error (exit code: $exit_code). See $SESSION_EVENTS for details."
         else
             log "Claude exited cleanly."
             log "Session complete."
@@ -478,9 +520,7 @@ EOF
         fi
     done
 
-    log "============================================"
-    log "autoclaude finished"
-    log "============================================"
+    banner "$green" "autoclaude finished"
 }
 
 main "$@"
