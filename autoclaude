@@ -149,7 +149,7 @@ check_credential_deny_rules() {
         local reset=$'\033[0m'
         echo "" >&2
         echo "  ${yellow}╔══════════════════════════════════════════════════════════════════╗${reset}" >&2
-        echo "  ${yellow}║  ⚠  Security Warning                                            ║${reset}" >&2
+        echo "  ${yellow}║  ⚠  Security Warning                                             ║${reset}" >&2
         echo "  ${yellow}╚══════════════════════════════════════════════════════════════════╝${reset}" >&2
         echo "" >&2
         echo "  ${yellow}Your .claude/settings.json is missing deny rules that protect${reset}" >&2
