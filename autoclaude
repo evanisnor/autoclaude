@@ -36,12 +36,12 @@ USAGE
 }
 
 PROJECT_DIR="$PWD"
-LOG_DIR="$PROJECT_DIR/.autoclaude"
-LOG_FILE="$LOG_DIR/autoclaude.log"
-SESSION_FILE="$LOG_DIR/session_id"
-SESSION_EVENTS="$LOG_DIR/last_session.jsonl"
-RUN_STATE="$LOG_DIR/run_state"
-PROMPT_HASH_FILE="$LOG_DIR/prompt_hash"
+STATE_DIR="$PROJECT_DIR/.autoclaude"
+LOG_FILE="$STATE_DIR/autoclaude.log"
+SESSION_FILE="$STATE_DIR/session_id"
+SESSION_EVENTS="$STATE_DIR/last_session.jsonl"
+RUN_STATE="$STATE_DIR/run_state"
+PROMPT_HASH_FILE="$STATE_DIR/prompt_hash"
 
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 MODEL="sonnet"
@@ -103,7 +103,7 @@ check_bypass_permissions_mode() {
 # Setup
 # ===========================================================================
 
-mkdir -p "$LOG_DIR"
+mkdir -p "$STATE_DIR"
 
 log() {
     local timestamp
