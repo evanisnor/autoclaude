@@ -24,7 +24,7 @@ jobs:
         id: tarball
         run: |
           PREFIX="autoclaude-${GITHUB_REF_NAME#v}"
-          TARBALL="${PREFIX}.tar.gz"
+          TARBALL="/tmp/${PREFIX}.tar.gz"
           tar czf "$TARBALL" --transform "s,^\\.,${PREFIX}," \
             --exclude='.git' --exclude='.github' .
           SHA=$(shasum -a 256 "$TARBALL" | awk '{print $1}')
