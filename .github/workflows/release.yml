@@ -15,34 +15,42 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Stamp version
+        run: |
+          BARE_VERSION="${GITHUB_REF_NAME#v}"
+          sed -i "s/^VERSION=\"dev\"/VERSION=\"${BARE_VERSION}\"/" autoclaude
+
+      - name: Create release tarball
+        id: tarball
+        run: |
+          PREFIX="autoclaude-${GITHUB_REF_NAME#v}"
+          TARBALL="${PREFIX}.tar.gz"
+          tar czf "$TARBALL" --transform "s,^\\.,${PREFIX}," \
+            --exclude='.git' --exclude='.github' .
+          SHA=$(shasum -a 256 "$TARBALL" | awk '{print $1}')
+          echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
+          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create "${{ github.ref_name }}" \
+            "${{ steps.tarball.outputs.tarball }}" \
             --title "${{ github.ref_name }}" \
             --generate-notes
-
-      - name: Compute tarball SHA256
-        id: sha
-        run: |
-          URL="https://github.com/${{ github.repository }}/archive/refs/tags/${{ github.ref_name }}.tar.gz"
-          SHA=$(curl -sL "$URL" | shasum -a 256 | awk '{print $1}')
-          echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
-          echo "url=$URL" >> "$GITHUB_OUTPUT"
 
       - name: Update Homebrew formula
         env:
           TAP_TOKEN: ${{ secrets.TAP_TOKEN }}
           VERSION: ${{ github.ref_name }}
-          SHA256: ${{ steps.sha.outputs.sha256 }}
-          URL: ${{ steps.sha.outputs.url }}
+          SHA256: ${{ steps.tarball.outputs.sha256 }}
         run: |
+          BARE_VERSION="${VERSION#v}"
+          URL="https://github.com/${{ github.repository }}/releases/download/${VERSION}/autoclaude-${BARE_VERSION}.tar.gz"
+
           git clone "https://x-access-token:${TAP_TOKEN}@github.com/evanisnor/homebrew-tap.git" tap
           cd tap
-
-          # Strip leading 'v' for the Homebrew version field
-          BARE_VERSION="${VERSION#v}"
 
           sed -i \
             -e "s|url \".*\"|url \"${URL}\"|" \

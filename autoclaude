@@ -6,6 +6,9 @@ set -euo pipefail
 # See usage() below for details.
 # ===========================================================================
 
+VERSION="dev"
+REPO_URL="https://github.com/evanisnor/autoclaude"
+
 usage() {
     cat <<'USAGE'
 autoclaude — Automated Claude Code runner
@@ -136,14 +139,13 @@ interpret_event() {
 # ===========================================================================
 
 main() {
-    cat <<'EOF'
+    cat <<EOF
              _             _                 _        
   __ _ _   _| |_ ___   ___| | __ _ _   _  __| | ___   
- / _` | | | | __/ _ \ / __| |/ _` | | | |/ _` |/ _ \  
+ / _\` | | | | __/ _ \\ / __| |/ _\` | | | |/ _\` |/ _ \\  
 | (_| | |_| | || (_) | (__| | (_| | |_| | (_| |  __/_ 
- \__,_|\__,_|\__\___/ \___|_|\__,_|\__,_|\__,_|\___(_)
-
- https://github.com/evanisnor/autoclaude
+ \__,_|\__,_|\__\___/ \___|_|\__,_|\__,_|\__,_|\___(_) ${VERSION}
+ ${REPO_URL}
 
 EOF
     local force_new=false
