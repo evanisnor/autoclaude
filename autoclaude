@@ -26,8 +26,8 @@ Prompt:
     --prompt-file <file>       Use a custom prompt file
 
 Usage:
-  ./autoclaude                                    # Resume saved session, or start new
-  ./autoclaude --new                              # Force a new session
+  ./autoclaude                                     # Resume saved session, or start new
+  ./autoclaude --new                               # Force a new session
   ./autoclaude -p "Build the login page"           # Use a text prompt
   ./autoclaude --prompt-file my-prompt.md          # Use a custom prompt file
   ./autoclaude --path-to-claude /path/to/claude    # Override claude binary location
