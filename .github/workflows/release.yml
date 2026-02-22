@@ -14,6 +14,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Stamp version
         run: |
@@ -31,6 +33,20 @@ jobs:
           echo "tarball=$TARBALL" >> "$GITHUB_OUTPUT"
           echo "sha256=$SHA" >> "$GITHUB_OUTPUT"
 
+      - name: Generate release notes
+        run: |
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | grep -v "^${{ github.ref_name }}$" | head -1)
+          if [[ -n "$PREVIOUS_TAG" ]]; then
+            CHANGES=$(git log "${PREVIOUS_TAG}..${{ github.ref_name }}" --pretty=format:"- %s" --no-merges)
+          else
+            CHANGES=$(git log "${{ github.ref_name }}" --pretty=format:"- %s" --no-merges)
+          fi
+          {
+            echo "## What's Changed"
+            echo ""
+            echo "$CHANGES"
+          } > /tmp/release-notes.md
+
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -38,7 +54,7 @@ jobs:
           gh release create "${{ github.ref_name }}" \
             "${{ steps.tarball.outputs.tarball }}" \
             --title "${{ github.ref_name }}" \
-            --generate-notes
+            --notes-file /tmp/release-notes.md
 
       - name: Update Homebrew formula
         env:
