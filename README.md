@@ -1,7 +1,13 @@
 # autoclaude
 
-Automated Claude Code runner designed for use with Claude Code subscription plans where usage limits are frequently hit. Runs Claude in headless, fully autonomous mode and automatically waits for the rate limit window to reset before resuming — so you can walk away and let it work.
+Automated Claude Code runner designed for use with Claude Code subscription plans where usage limits are frequently hit. Runs `claude` in non-interactive mode util your rate limit window is hit, and then automatically resumes when the window re-opens so you can walk away and let it work.
 
+Things you can do while `autoclaude` works:
+* Eat
+* Sleep
+* Reflect on the meaning of life and the mysteries of the universe
+<br />
+<br />
 > ⚠️ **Security advisory:** This tool runs Claude with all permission prompts disabled. Claude can read and write files, run shell commands, and make network requests without confirmation. Read the [Security Considerations](#security-considerations) section before use.
 
 ![autoclaude running in a terminal](dist/terminal.png)
@@ -22,7 +28,7 @@ Sessions are saved and resumed automatically — if `autoclaude` is restarted, i
 
 ## How It Works
 
-`autoclaude` launches `claude` with `--dangerously-skip-permissions` (yolo mode), streams its JSON output, and monitors for rate limit events. When a usage limit is hit, it reads the reset timestamp from the event stream, sleeps until 2 minutes after the reset, then resumes the same session automatically. This repeats until Claude exits cleanly.
+`autoclaude` launches `claude` in non-interactive mode with `--dangerously-skip-permissions` (yolo mode), streams its JSON output, and monitors for rate limit events. When a usage limit is hit, it reads the reset timestamp from the event stream, sleeps until 2 minutes after the reset, then resumes the same session automatically. This repeats until Claude exits cleanly.
 
 ## Usage
 
@@ -62,7 +68,7 @@ By default, `autoclaude` looks for a prompt in:
 1. `autoclaude/prompt.md`
 2. `autoclaude/prompt.txt`
 
-Create one of these files with the task you want Claude to work on. You can override the path at runtime with `--prompt`.
+Create one of these files with the task you want Claude to work on. You can override the path at runtime with `--prompt-file` or provide an inline text prompt with `-p`.
 
 ### Environment variables
 
@@ -85,7 +91,8 @@ The model is set to `sonnet`. Edit the `MODEL` variable near the top of the scri
 | `last_session.jsonl` | Raw stream-json event lines from the last Claude invocation |
 | `run_state` | Transient file written during a run to pass session ID and reset timestamps out of the stream processor subshell |
 
-```gitignore
+⚠️ Add this directory to your `.gitignore` file:
+```
 .autoclaude/
 ```
 
