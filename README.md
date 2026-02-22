@@ -41,6 +41,7 @@ autoclaude --new                              # Force a new session (discards sa
 autoclaude -p "Build the login page"          # Use a text prompt
 autoclaude --prompt-file my-prompt.md         # Use a specific prompt file
 autoclaude --path-to-claude /path/to/claude   # Override the claude binary location
+autoclaude --model opus                       # Override the model
 ```
 
 ### Flags
@@ -52,6 +53,7 @@ autoclaude --path-to-claude /path/to/claude   # Override the claude binary locat
 | `-p`, `--prompt <text>` | Use the given text as the prompt |
 | `--prompt-file <file>` | Load the prompt from a file instead of the default location |
 | `--path-to-claude <path>` | Override the path to the `claude` binary (default: `claude` on `PATH`) |
+| `--model <model>` | Override the model (default: `sonnet`) |
 | `--usage` | Print help text and exit |
 
 ## Requirements
@@ -77,9 +79,7 @@ Create one of these files with the task you want Claude to work on. You can over
 |----------|---------|-------------|
 | `CLAUDE_BIN` | `claude` | Path to the `claude` binary. Overridden by `--path-to-claude` at runtime. |
 
-### Model
-
-The model is set to `sonnet`. Edit the `MODEL` variable near the top of the script to change it.
+Any model identifier accepted by the `claude` CLI can be used.
 
 ## The `.autoclaude` directory
 

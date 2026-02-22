@@ -31,6 +31,7 @@ Usage:
   ./autoclaude -p "Build the login page"           # Use a text prompt
   ./autoclaude --prompt-file my-prompt.md          # Use a custom prompt file
   ./autoclaude --path-to-claude /path/to/claude    # Override claude binary location
+  ./autoclaude --model opus                        # Override the model
   ./autoclaude --usage                             # Print this help text
 USAGE
 }
@@ -242,6 +243,7 @@ EOF
     local prompt_text=""
     local prompt_file=""
     local path_to_claude=""
+    local model_override=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --usage)              usage; exit 0 ;;
@@ -252,6 +254,8 @@ EOF
             --prompt-file=*)      prompt_file="${1#*=}";              shift ;;
             --path-to-claude)     path_to_claude="${2:-}";            shift 2 ;;
             --path-to-claude=*)   path_to_claude="${1#*=}";           shift ;;
+            --model)              model_override="${2:-}";            shift 2 ;;
+            --model=*)            model_override="${1#*=}";           shift ;;
             *)                    shift ;;
         esac
     done
@@ -265,6 +269,10 @@ EOF
 
     if [[ -n "$path_to_claude" ]]; then
         CLAUDE_BIN="$path_to_claude"
+    fi
+
+    if [[ -n "$model_override" ]]; then
+        MODEL="$model_override"
     fi
 
     if ! command -v "$CLAUDE_BIN" &>/dev/null && ! [[ -x "$CLAUDE_BIN" ]]; then
@@ -311,6 +319,7 @@ EOF
     log "============================================"
     log "autoclaude starting"
     log "  mode:       $mode"
+    log "  model:      $MODEL"
     log "  prompt:     ${display_prompt:-(not found)}"
     log "  session ID: ${saved_session:-(none)}"
     log "  log:        $LOG_FILE"
