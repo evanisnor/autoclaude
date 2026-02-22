@@ -8,13 +8,14 @@ set -euo pipefail
 # are hit, waits for the reset window and resumes automatically.
 #
 # By default, reads the prompt from autoclaude/prompt.md or autoclaude/prompt.txt.
-# Override with --prompt path/to/file.
+# Override with -p "prompt text" or --prompt-file path/to/file.
 #
 # Usage:
-#   ./autoclaude                           # Resume saved session, or start new
-#   ./autoclaude --new                     # Force a new session
-#   ./autoclaude --prompt my-prompt.md     # Use a custom prompt file
-#   ./autoclaude --path-to-claude /path/to/claude  # Override claude binary location
+#   ./autoclaude                                    # Resume saved session, or start new
+#   ./autoclaude --new                              # Force a new session
+#   ./autoclaude -p "Build the login page"           # Use a text prompt
+#   ./autoclaude --prompt-file my-prompt.md          # Use a custom prompt file
+#   ./autoclaude --path-to-claude /path/to/claude    # Override claude binary location
 # ===========================================================================
 
 PROJECT_DIR="$PWD"
@@ -30,11 +31,19 @@ MODEL="sonnet"
 CONFIG_DIR="$PROJECT_DIR/autoclaude"
 
 # ---------------------------------------------------------------------------
-# Load prompt from the given file, or fall back to autoclaude/prompt.{md,txt}
+# Resolve the prompt: explicit text > explicit file > default file
 # ---------------------------------------------------------------------------
-load_prompt() {
-    local prompt_file="${1:-}"
+resolve_prompt() {
+    local prompt_text="${1:-}"
+    local prompt_file="${2:-}"
 
+    # If a text prompt was given directly, use it
+    if [[ -n "$prompt_text" ]]; then
+        echo "$prompt_text"
+        return
+    fi
+
+    # If no file was given, fall back to defaults
     if [[ -z "$prompt_file" ]]; then
         for candidate in "$CONFIG_DIR/prompt.md" "$CONFIG_DIR/prompt.txt"; do
             if [[ -f "$candidate" ]]; then
@@ -45,7 +54,7 @@ load_prompt() {
     fi
 
     if [[ -z "$prompt_file" || ! -f "$prompt_file" ]]; then
-        echo "ERROR: No prompt file found. Provide --prompt <file> or create $CONFIG_DIR/prompt.md" >&2
+        echo "ERROR: No prompt provided. Use -p \"text\", --prompt-file <file>, or create $CONFIG_DIR/prompt.md" >&2
         exit 1
     fi
 
@@ -123,18 +132,26 @@ main() {
 
 EOF
     local force_new=false
-    local prompt_path=""
+    local prompt_text=""
+    local prompt_file=""
     local path_to_claude=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --new)                force_new=true;                      shift ;;
-            --prompt)             prompt_path="${2:-}";               shift 2 ;;
-            --prompt=*)           prompt_path="${1#*=}";              shift ;;
+            -p|--prompt)          prompt_text="${2:-}";               shift 2 ;;
+            --prompt=*)           prompt_text="${1#*=}";              shift ;;
+            --prompt-file)        prompt_file="${2:-}";               shift 2 ;;
+            --prompt-file=*)      prompt_file="${1#*=}";              shift ;;
             --path-to-claude)     path_to_claude="${2:-}";            shift 2 ;;
             --path-to-claude=*)   path_to_claude="${1#*=}";           shift ;;
             *)                    shift ;;
         esac
     done
+
+    if [[ -n "$prompt_text" && -n "$prompt_file" ]]; then
+        echo "ERROR: Cannot use both -p/--prompt and --prompt-file. Pick one." >&2
+        exit 1
+    fi
 
     if [[ -n "$path_to_claude" ]]; then
         CLAUDE_BIN="$path_to_claude"
@@ -162,8 +179,12 @@ EOF
         mode="resume"
     fi
 
-    local display_prompt="$prompt_path"
-    if [[ -z "$display_prompt" ]]; then
+    local display_prompt=""
+    if [[ -n "$prompt_text" ]]; then
+        display_prompt="(inline text)"
+    elif [[ -n "$prompt_file" ]]; then
+        display_prompt="$prompt_file"
+    else
         for candidate in "$CONFIG_DIR/prompt.md" "$CONFIG_DIR/prompt.txt"; do
             if [[ -f "$candidate" ]]; then
                 display_prompt="$candidate"
@@ -181,8 +202,14 @@ EOF
     log "============================================"
 
     local PROMPT
-    PROMPT="$(load_prompt "$prompt_path")"
-    log "Loaded prompt${prompt_path:+ from $prompt_path}"
+    PROMPT="$(resolve_prompt "$prompt_text" "$prompt_file")"
+    if [[ -n "$prompt_text" ]]; then
+        log "Using inline prompt"
+    elif [[ -n "$prompt_file" ]]; then
+        log "Loaded prompt from $prompt_file"
+    else
+        log "Loaded prompt from default file"
+    fi
 
     local -a base_cmd=(
         "$CLAUDE_BIN"

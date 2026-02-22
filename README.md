@@ -17,8 +17,9 @@ autoclaude                                    # Resume saved session, or start n
                                               # Uses `autoclaude/prompt.md` as the prompt
 
 autoclaude --new                              # Force a new session (discards saved session ID)
-autoclaude --prompt my-prompt.md             # Use a specific prompt file
-autoclaude --path-to-claude /path/to/claude  # Override the claude binary location
+autoclaude -p "Build the login page"          # Use a text prompt
+autoclaude --prompt-file my-prompt.md         # Use a specific prompt file
+autoclaude --path-to-claude /path/to/claude   # Override the claude binary location
 ```
 
 ### Flags
@@ -27,7 +28,8 @@ autoclaude --path-to-claude /path/to/claude  # Override the claude binary locati
 |------|-------------|
 | *(none)* | Resume the saved session if one exists, otherwise start fresh |
 | `--new` | Force a new session, discarding any saved session ID |
-| `--prompt <file>` | Load the prompt from the given file instead of the default location |
+| `-p`, `--prompt <text>` | Use the given text as the prompt |
+| `--prompt-file <file>` | Load the prompt from a file instead of the default location |
 | `--path-to-claude <path>` | Override the path to the `claude` binary (default: `claude` on `PATH`) |
 
 ## Installation
