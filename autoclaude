@@ -41,6 +41,7 @@ LOG_FILE="$LOG_DIR/autoclaude.log"
 SESSION_FILE="$LOG_DIR/session_id"
 SESSION_EVENTS="$LOG_DIR/last_session.jsonl"
 RUN_STATE="$LOG_DIR/run_state"
+PROMPT_HASH_FILE="$LOG_DIR/prompt_hash"
 
 CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 MODEL="sonnet"
@@ -108,6 +109,11 @@ log() {
     local timestamp
     timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
     echo "[$timestamp] $*" | tee -a "$LOG_FILE"
+}
+
+# Compute a SHA-256 hash of a file, returning just the hex digest.
+prompt_file_hash() {
+    shasum -a 256 "$1" | cut -d' ' -f1
 }
 
 # ===========================================================================
@@ -244,6 +250,22 @@ EOF
     log "  log:        $LOG_FILE"
     log "============================================"
 
+    # Resolve the prompt file path so we can watch it for changes across sessions.
+    # Only set for file-based prompts; empty for inline -p text.
+    local active_prompt_file=""
+    if [[ -z "$prompt_text" ]]; then
+        if [[ -n "$prompt_file" ]]; then
+            active_prompt_file="$prompt_file"
+        else
+            for candidate in "$CONFIG_DIR/prompt.md" "$CONFIG_DIR/prompt.txt"; do
+                if [[ -f "$candidate" ]]; then
+                    active_prompt_file="$candidate"
+                    break
+                fi
+            done
+        fi
+    fi
+
     local PROMPT
     PROMPT="$(resolve_prompt "$prompt_text" "$prompt_file")"
     if [[ -n "$prompt_text" ]]; then
@@ -252,6 +274,11 @@ EOF
         log "Loaded prompt from $prompt_file"
     else
         log "Loaded prompt from default file"
+    fi
+
+    # Save the initial hash so we can detect edits between resumed sessions.
+    if [[ -n "$active_prompt_file" ]]; then
+        prompt_file_hash "$active_prompt_file" > "$PROMPT_HASH_FILE"
     fi
 
     local -a base_cmd=(
@@ -273,6 +300,26 @@ EOF
     fi
 
     while true; do
+        # Reload prompt file if it changed since the last session.
+        if [[ -n "$active_prompt_file" && -f "$PROMPT_HASH_FILE" ]]; then
+            local current_hash stored_hash
+            current_hash=$(prompt_file_hash "$active_prompt_file")
+            stored_hash=$(cat "$PROMPT_HASH_FILE")
+            if [[ "$current_hash" != "$stored_hash" ]]; then
+                log "Prompt file changed, reloading: $active_prompt_file"
+                PROMPT="$(cat "$active_prompt_file")"
+                base_cmd=(
+                    "$CLAUDE_BIN"
+                    -p "$PROMPT"
+                    --model "$MODEL"
+                    --dangerously-skip-permissions
+                    --output-format stream-json
+                    --verbose
+                )
+                echo "$current_hash" > "$PROMPT_HASH_FILE"
+            fi
+        fi
+
         # Build command with current resume flag
         local -a cmd=("${base_cmd[@]}")
         if [[ -n "$resume_flag" ]]; then
