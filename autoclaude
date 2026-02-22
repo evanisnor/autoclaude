@@ -99,6 +99,71 @@ check_bypass_permissions_mode() {
     fi
 }
 
+# ---------------------------------------------------------------------------
+# Security check: warn if credential-protection deny rules are missing
+# ---------------------------------------------------------------------------
+check_credential_deny_rules() {
+    local settings_file="$PROJECT_DIR/.claude/settings.json"
+
+    # Each entry is "rule|path_to_check". The rule is only relevant if the
+    # corresponding file or directory actually exists.
+    local -a rule_path_pairs=(
+        "Read(./.env)|$PROJECT_DIR/.env"
+        "Read(./.env.*)|$PROJECT_DIR/.env.*"
+        "Read(./secrets/**)|$PROJECT_DIR/secrets"
+        "Read(~/.aws/**)|$HOME/.aws"
+        "Read(~/.ssh/**)|$HOME/.ssh"
+    )
+
+    local -a applicable_rules=()
+    for pair in "${rule_path_pairs[@]}"; do
+        local rule="${pair%%|*}"
+        local path="${pair##*|}"
+        # Use glob expansion to check for .env.* matches
+        local exists=false
+        for f in $path; do
+            [[ -e "$f" ]] && exists=true && break
+        done
+        [[ "$exists" == true ]] && applicable_rules+=("$rule")
+    done
+
+    [[ ${#applicable_rules[@]} -eq 0 ]] && return 0
+
+    local -a missing_rules=()
+
+    if [[ ! -f "$settings_file" ]]; then
+        missing_rules=("${applicable_rules[@]}")
+    else
+        local deny_json
+        deny_json=$(jq -r '(.permissions.deny // []) | .[]' "$settings_file" 2>/dev/null || true)
+        for rule in "${applicable_rules[@]}"; do
+            if ! grep -qxF "$rule" <<< "$deny_json"; then
+                missing_rules+=("$rule")
+            fi
+        done
+    fi
+
+    if [[ ${#missing_rules[@]} -gt 0 ]]; then
+        local yellow=$'\033[33m'
+        local reset=$'\033[0m'
+        echo "" >&2
+        echo "  ${yellow}╔══════════════════════════════════════════════════════════════════╗${reset}" >&2
+        echo "  ${yellow}║  ⚠  Security Warning                                            ║${reset}" >&2
+        echo "  ${yellow}╚══════════════════════════════════════════════════════════════════╝${reset}" >&2
+        echo "" >&2
+        echo "  ${yellow}Your .claude/settings.json is missing deny rules that protect${reset}" >&2
+        echo "  ${yellow}credential files from being read by Claude. It is strongly${reset}" >&2
+        echo "  ${yellow}recommended to add the following rules:${reset}" >&2
+        echo "" >&2
+        for rule in "${missing_rules[@]}"; do
+            echo "  ${yellow}  • \"$rule\"${reset}" >&2
+        done
+        echo "" >&2
+        echo "  ${yellow}See ${REPO_URL}?tab=readme-ov-file#recommended-claudesettingsjson${reset}" >&2
+        echo "" >&2
+    fi
+}
+
 # ===========================================================================
 # Setup
 # ===========================================================================
@@ -214,6 +279,7 @@ EOF
     fi
 
     check_bypass_permissions_mode
+    check_credential_deny_rules
 
     local saved_session=""
     [[ -f "$SESSION_FILE" ]] && saved_session="$(cat "$SESSION_FILE")"

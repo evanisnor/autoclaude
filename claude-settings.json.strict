@@ -1,10 +1,5 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
-
-  // Strict: full bash sandbox with an explicit network allowlist.
-  // Bash commands run in an isolated environment. Only the listed domains
-  // can be reached over the network. Adjust allowedDomains for your stack.
-
   "sandbox": {
     "enabled": true,
     "autoAllowBashIfSandboxed": true,
