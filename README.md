@@ -1,6 +1,6 @@
 # autoclaude
 
-Automated Claude Code runner designed for use with Claude Code subscription plans where usage limits are frequently hit. Runs `claude` in non-interactive mode util your rate limit window is hit, and then automatically resumes when the window re-opens so you can walk away and let it work.
+Automated Claude Code runner designed for use with Claude Code subscription plans where usage limits are frequently hit. Runs `claude` in non-interactive mode until your rate limit window is hit, and then automatically resumes when the window re-opens so you can walk away and let it work.
 
 Things you can do while `autoclaude` works:
 * Eat
