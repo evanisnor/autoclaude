@@ -45,6 +45,7 @@ autoclaude --path-to-claude /path/to/claude   # Override the claude binary locat
 | `-p`, `--prompt <text>` | Use the given text as the prompt |
 | `--prompt-file <file>` | Load the prompt from a file instead of the default location |
 | `--path-to-claude <path>` | Override the path to the `claude` binary (default: `claude` on `PATH`) |
+| `--usage` | Print help text and exit |
 
 ## Requirements
 

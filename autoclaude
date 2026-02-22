@@ -31,6 +31,7 @@ Usage:
   ./autoclaude -p "Build the login page"           # Use a text prompt
   ./autoclaude --prompt-file my-prompt.md          # Use a custom prompt file
   ./autoclaude --path-to-claude /path/to/claude    # Override claude binary location
+  ./autoclaude --usage                             # Print this help text
 USAGE
 }
 
@@ -154,6 +155,7 @@ EOF
     local path_to_claude=""
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            --usage)              usage; exit 0 ;;
             --new)                force_new=true;                      shift ;;
             -p|--prompt)          prompt_text="${2:-}";               shift 2 ;;
             --prompt=*)           prompt_text="${1#*=}";              shift ;;
