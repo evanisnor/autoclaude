@@ -6,6 +6,20 @@ Automated Claude Code runner designed for use with Claude Code subscription plan
 
 ![autoclaude running in a terminal](dist/terminal.png)
 
+## Getting Started
+
+```bash
+brew install evanisnor/autoclaude/autoclaude
+```
+
+Create a prompt file at `autoclaude/prompt.md` in your project, then run:
+
+```bash
+autoclaude
+```
+
+Sessions are saved and resumed automatically — if `autoclaude` is restarted, it picks up where it left off.
+
 ## How It Works
 
 `autoclaude` launches `claude` with `--dangerously-skip-permissions` (yolo mode), streams its JSON output, and monitors for rate limit events. When a usage limit is hit, it reads the reset timestamp from the event stream, sleeps until 2 minutes after the reset, then resumes the same session automatically. This repeats until Claude exits cleanly.
@@ -31,19 +45,6 @@ autoclaude --path-to-claude /path/to/claude   # Override the claude binary locat
 | `-p`, `--prompt <text>` | Use the given text as the prompt |
 | `--prompt-file <file>` | Load the prompt from a file instead of the default location |
 | `--path-to-claude <path>` | Override the path to the `claude` binary (default: `claude` on `PATH`) |
-
-## Installation
-
-```bash
-brew tap evanisnor/autoclaude
-brew install autoclaude
-```
-
-Or in one step:
-
-```bash
-brew install evanisnor/autoclaude/autoclaude
-```
 
 ## Requirements
 
