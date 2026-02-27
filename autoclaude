@@ -502,7 +502,21 @@ EOF
 
             if (( wait_seconds > 0 )); then
                 log "Waiting until $resume_human for rate limit to reset..."
-                sleep "$wait_seconds"
+                while true; do
+                    now=$(date +%s)
+                    if (( now >= resume_at )); then
+                        break
+                    fi
+                    local remaining=$(( resume_at - now ))
+                    local step=$(( remaining > 60 ? 60 : remaining ))
+                    # Use caffeinate if available to prevent idle sleep, but sleep in 
+                    # increments to handle hibernation (lid closed).
+                    if command -v caffeinate >/dev/null 2>&1; then
+                        caffeinate -i sleep "$step"
+                    else
+                        sleep "$step"
+                    fi
+                done
             fi
 
             log "Resuming..."
