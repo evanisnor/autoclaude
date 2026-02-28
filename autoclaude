@@ -14,10 +14,20 @@ STATE_DIR="$PROJECT_DIR/.autoclaude"
 LOG_FILE="$STATE_DIR/autoclaude.log"
 mkdir -p "$STATE_DIR"
 
+DEBUG=false
+
+# log [INFO|DEBUG] <message>
+# Log level defaults to INFO. DEBUG lines are suppressed unless --debug is set.
 log() {
+    local level="INFO"
+    if [[ "$1" == "INFO" || "$1" == "DEBUG" ]]; then
+        level="$1"
+        shift
+    fi
+    [[ "$level" == "DEBUG" && "$DEBUG" != true ]] && return 0
     local timestamp
     timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
-    echo "[$timestamp] $*" | tee -a "$LOG_FILE"
+    echo "[$timestamp] [$level] $*" | tee -a "$LOG_FILE"
 }
 
 # ===========================================================================
@@ -55,6 +65,7 @@ Usage:
   ./autoclaude --prompt-file my-prompt.md          # Use a custom prompt file
   ./autoclaude --path-to-claude /path/to/claude    # Override claude binary location
   ./autoclaude --model opus                        # Override the model
+  ./autoclaude --debug                             # Enable debug logging
   ./autoclaude --usage                             # Print this help text
 USAGE
 }
@@ -303,6 +314,7 @@ EOF
         case "$1" in
             --usage)              usage; exit 0 ;;
             --new)                force_new=true;                      shift ;;
+            --debug)              DEBUG=true;                          shift ;;
             -p|--prompt)          prompt_text="${2:-}";               shift 2 ;;
             --prompt=*)           prompt_text="${1#*=}";              shift ;;
             --prompt-file)        prompt_file="${2:-}";               shift 2 ;;
@@ -559,6 +571,26 @@ EOF
             error "$exit_code" "Claude exited with error (exit code: $exit_code). See $SESSION_EVENTS for details."
         else
             log "Claude exited cleanly."
+
+            # Log the full result event so we can inspect what caused the clean exit
+            # (e.g. normal completion vs. /compact stopping the session).
+            if [[ -f "$SESSION_EVENTS" ]]; then
+                local last_result_line
+                last_result_line=$(grep -E '"type"\s*:\s*"result"' "$SESSION_EVENTS" | tail -1 || true)
+                if [[ -n "$last_result_line" ]]; then
+                    local result_subtype result_is_error result_stop_reason result_text
+                    result_subtype=$(echo "$last_result_line" | jq -r '.subtype // "(none)"' 2>/dev/null || echo "(parse error)")
+                    result_is_error=$(echo "$last_result_line" | jq -r '.is_error // "(none)"' 2>/dev/null || echo "(parse error)")
+                    result_stop_reason=$(echo "$last_result_line" | jq -r '.stop_reason // "(none)"' 2>/dev/null || echo "(parse error)")
+                    result_text=$(echo "$last_result_line" | jq -r '.result // ""' 2>/dev/null | head -c 300 || echo "(parse error)")
+                    log DEBUG "[result] subtype=$result_subtype  is_error=$result_is_error  stop_reason=$result_stop_reason"
+                    [[ -n "$result_text" ]] && log DEBUG "[result] result text: ${result_text}"
+                    log DEBUG "[result] raw: ${last_result_line:0:500}"
+                else
+                    log DEBUG "[result] no result event found in session events"
+                fi
+            fi
+
             log "Session complete."
             break
         fi

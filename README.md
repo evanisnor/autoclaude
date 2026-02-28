@@ -54,6 +54,7 @@ autoclaude --model opus                       # Override the model
 | `--prompt-file <file>` | Load the prompt from a file instead of the default location |
 | `--path-to-claude <path>` | Override the path to the `claude` binary (default: `claude` on `PATH`) |
 | `--model <model>` | Override the model (default: `sonnet`) |
+| `--debug` | Enable debug logging (written to stdout and `autoclaude.log`) |
 | `--usage` | Print help text and exit |
 
 ## Requirements
