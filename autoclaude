@@ -9,6 +9,29 @@ set -euo pipefail
 VERSION="dev"
 REPO_URL="https://github.com/evanisnor/autoclaude"
 
+PROJECT_DIR="$PWD"
+STATE_DIR="$PROJECT_DIR/.autoclaude"
+LOG_FILE="$STATE_DIR/autoclaude.log"
+mkdir -p "$STATE_DIR"
+
+log() {
+    local timestamp
+    timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+    echo "[$timestamp] $*" | tee -a "$LOG_FILE"
+}
+
+# ===========================================================================
+# Signal handling
+# ===========================================================================
+CAFFEINATE_PID=""
+
+_cleanup() {
+    trap - INT TERM
+    [[ -n "${CAFFEINATE_PID:-}" ]] && kill "$CAFFEINATE_PID" 2>/dev/null || true
+    exit 130
+}
+trap _cleanup INT TERM
+
 usage() {
     cat <<'USAGE'
 autoclaude — Automated Claude Code runner
@@ -36,9 +59,6 @@ Usage:
 USAGE
 }
 
-PROJECT_DIR="$PWD"
-STATE_DIR="$PROJECT_DIR/.autoclaude"
-LOG_FILE="$STATE_DIR/autoclaude.log"
 SESSION_FILE="$STATE_DIR/session_id"
 SESSION_EVENTS="$STATE_DIR/last_session.jsonl"
 RUN_STATE="$STATE_DIR/run_state"
@@ -166,12 +186,6 @@ check_credential_deny_rules() {
     fi
 }
 
-# ===========================================================================
-# Setup
-# ===========================================================================
-
-mkdir -p "$STATE_DIR"
-
 banner() {
     local color="${1}"
     shift
@@ -201,12 +215,6 @@ banner() {
     done <<< "$text"
 
     echo "  ${color}╚${border}╝${reset}" >&2
-}
-
-log() {
-    local timestamp
-    timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
-    echo "[$timestamp] $*" | tee -a "$LOG_FILE"
 }
 
 error() {
@@ -453,8 +461,9 @@ EOF
         cd "$PROJECT_DIR"
         unset CLAUDECODE 2>/dev/null || true
 
-        # Stream events line by line. Use set +e to capture exit code through
-        # the pipeline — PIPESTATUS[0] gives claude's exit code after the pipe.
+        # Simple pipeline — claude runs as a foreground process group member.
+        # SIGINT from ctrl+c reaches the whole group and fires the top-level trap.
+        # PIPESTATUS[0] captures claude's exit code after the pipe.
         local exit_code=0
         set +e
         "${cmd[@]}" 2>&1 | while IFS= read -r line; do
@@ -481,6 +490,14 @@ EOF
         exit_code=${PIPESTATUS[0]}
         set -e
 
+        # Claude (Node.js) sets the terminal to raw mode and may not restore it
+        # on exit. In raw mode ctrl+c is just a byte — not a signal. Restore
+        # cooked mode so SIGINT works for everything that follows.
+        stty sane 2>/dev/null || stty isig echo icrnl 2>/dev/null || true
+
+        # Re-arm the trap: bash 3.2 may clobber it after a pipeline.
+        trap _cleanup INT TERM
+
         # Read state written by the stream processor
         local session_id="" resets_at=""
         if [[ -f "$RUN_STATE" ]]; then
@@ -502,21 +519,34 @@ EOF
 
             if (( wait_seconds > 0 )); then
                 log "Waiting until $resume_human for rate limit to reset..."
-                while true; do
-                    now=$(date +%s)
-                    if (( now >= resume_at )); then
-                        break
-                    fi
-                    local remaining=$(( resume_at - now ))
-                    local step=$(( remaining > 60 ? 60 : remaining ))
-                    # Use caffeinate if available to prevent idle sleep, but sleep in 
-                    # increments to handle hibernation (lid closed).
-                    if command -v caffeinate >/dev/null 2>&1; then
-                        caffeinate -i sleep "$step"
-                    else
-                        sleep "$step"
-                    fi
-                done
+
+                # caffeinate -i -w $$ prevents idle sleep and exits
+                # automatically when this shell exits.
+                if command -v caffeinate >/dev/null 2>&1; then
+                    caffeinate -i -w $$ &
+                    CAFFEINATE_PID=$!
+                fi
+
+                # Use perl for the wait loop. After the claude pipeline bash 3.2
+                # leaves SIGINT as SIG_IGN at the kernel level, so no bash trap
+                # can fire. Perl receives SIGINT normally and forwards SIGTERM
+                # to the parent bash process (SIGTERM is not affected by the
+                # pipeline SIG_IGN issue).
+                local bash_pid=$$
+                /usr/bin/perl -e '
+                    my ($ppid, $resume_at) = @ARGV;
+                    $SIG{INT} = sub { kill "TERM", $ppid; exit 130; };
+                    while (1) {
+                        my $now = time();
+                        last if $now >= $resume_at;
+                        my $step = ($resume_at - $now);
+                        $step = 60 if $step > 60;
+                        sleep($step);
+                    }
+                ' "$bash_pid" "$resume_at"
+
+                [[ -n "${CAFFEINATE_PID:-}" ]] && kill "$CAFFEINATE_PID" 2>/dev/null || true
+                CAFFEINATE_PID=""
             fi
 
             log "Resuming..."
