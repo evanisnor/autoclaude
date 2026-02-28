@@ -15,9 +15,11 @@ LOG_FILE="$STATE_DIR/autoclaude.log"
 mkdir -p "$STATE_DIR"
 
 DEBUG=false
+UTC=false
 
 # log [INFO|DEBUG] <message>
 # Log level defaults to INFO. DEBUG lines are suppressed unless --debug is set.
+# Timestamps use local time with UTC offset by default; set UTC=true for UTC.
 log() {
     local level="INFO"
     if [[ "$1" == "INFO" || "$1" == "DEBUG" ]]; then
@@ -26,7 +28,11 @@ log() {
     fi
     [[ "$level" == "DEBUG" && "$DEBUG" != true ]] && return 0
     local timestamp
-    timestamp="$(date '+%Y-%m-%d %H:%M:%S')"
+    if [[ "$UTC" == true ]]; then
+        timestamp="$(date -u '+%Y-%m-%d %H:%M:%SZ')"
+    else
+        timestamp="$(date '+%Y-%m-%d %H:%M:%S %z')"
+    fi
     echo "[$timestamp] [$level] $*" | tee -a "$LOG_FILE"
 }
 
@@ -66,6 +72,7 @@ Usage:
   ./autoclaude --path-to-claude /path/to/claude    # Override claude binary location
   ./autoclaude --model opus                        # Override the model
   ./autoclaude --debug                             # Enable debug logging
+  ./autoclaude --utc                               # Print log timestamps in UTC
   ./autoclaude --usage                             # Print this help text
 USAGE
 }
@@ -315,6 +322,7 @@ EOF
             --usage)              usage; exit 0 ;;
             --new)                force_new=true;                      shift ;;
             --debug)              DEBUG=true;                          shift ;;
+            --utc)                UTC=true;                            shift ;;
             -p|--prompt)          prompt_text="${2:-}";               shift 2 ;;
             --prompt=*)           prompt_text="${1#*=}";              shift ;;
             --prompt-file)        prompt_file="${2:-}";               shift 2 ;;

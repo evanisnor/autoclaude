@@ -55,6 +55,7 @@ autoclaude --model opus                       # Override the model
 | `--path-to-claude <path>` | Override the path to the `claude` binary (default: `claude` on `PATH`) |
 | `--model <model>` | Override the model (default: `sonnet`) |
 | `--debug` | Enable debug logging (written to stdout and `autoclaude.log`) |
+| `--utc` | Print log timestamps in UTC instead of local time with offset |
 | `--usage` | Print help text and exit |
 
 ## Requirements
