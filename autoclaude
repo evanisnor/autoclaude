@@ -561,6 +561,18 @@ EOF
         fi
     fi
 
+    # Validate that a prompt source exists before entering the command substitution,
+    # where error output from resolve_prompt would be silently captured.
+    if [[ -z "$prompt_text" && -z "$prompt_file" ]]; then
+        local _found=false
+        for candidate in "$CONFIG_DIR/prompt.md" "$CONFIG_DIR/prompt.txt"; do
+            [[ -f "$candidate" ]] && _found=true && break
+        done
+        if [[ "$_found" == false ]]; then
+            error "No prompt provided. Use -p \"text\", --prompt-file <file>, or create $CONFIG_DIR/prompt.md"
+        fi
+    fi
+
     local PROMPT
     PROMPT="$(resolve_prompt "$prompt_text" "$prompt_file")"
     if [[ -n "$prompt_text" ]]; then
