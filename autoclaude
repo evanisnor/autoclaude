@@ -474,6 +474,7 @@ EOF
         fi
 
         log "Running: $CLAUDE_BIN -p <prompt> --model $MODEL --dangerously-skip-permissions --output-format stream-json --verbose${resume_flag:+ $resume_flag}"
+        log DEBUG "Full command: ${cmd[*]}"
 
         > "$SESSION_EVENTS"
         > "$RUN_STATE"
@@ -509,6 +510,7 @@ EOF
         done
         exit_code=${PIPESTATUS[0]}
         set -e
+        log DEBUG "claude exited with code: $exit_code"
 
         # Claude (Node.js) sets the terminal to raw mode and may not restore it
         # on exit. In raw mode ctrl+c is just a byte — not a signal. Restore
@@ -530,6 +532,22 @@ EOF
             log "Session ID saved: $session_id"
         fi
 
+        # Always log the last result event for diagnostics, regardless of exit path.
+        if [[ -f "$SESSION_EVENTS" ]]; then
+            local last_result_line
+            last_result_line=$(grep -E '"type"\s*:\s*"result"' "$SESSION_EVENTS" | tail -1 || true)
+            if [[ -n "$last_result_line" ]]; then
+                local result_subtype result_is_error result_stop_reason
+                result_subtype=$(echo "$last_result_line" | jq -r '.subtype // "(none)"' 2>/dev/null || echo "(parse error)")
+                result_is_error=$(echo "$last_result_line" | jq -r '.is_error // "(none)"' 2>/dev/null || echo "(parse error)")
+                result_stop_reason=$(echo "$last_result_line" | jq -r '.stop_reason // "(none)"' 2>/dev/null || echo "(parse error)")
+                log DEBUG "[result] subtype=$result_subtype  is_error=$result_is_error  stop_reason=$result_stop_reason  exit_code=$exit_code"
+                log DEBUG "[result] raw: ${last_result_line}"
+            else
+                log DEBUG "[result] no result event found in session events (exit_code=$exit_code)"
+            fi
+        fi
+
         if [[ -n "$resets_at" ]]; then
             local now resume_at wait_seconds resume_human
             now=$(date +%s)
@@ -539,12 +557,16 @@ EOF
 
             if (( wait_seconds > 0 )); then
                 log "Waiting until $resume_human for rate limit to reset..."
+                log DEBUG "Rate limit resets_at=$resets_at now=$(date +%s) wait_seconds=$wait_seconds resume_at=$resume_at"
 
                 # caffeinate -i -w $$ prevents idle sleep and exits
                 # automatically when this shell exits.
                 if command -v caffeinate >/dev/null 2>&1; then
                     caffeinate -i -w $$ &
                     CAFFEINATE_PID=$!
+                    log DEBUG "caffeinate started (PID: $CAFFEINATE_PID)"
+                else
+                    log DEBUG "caffeinate not available, skipping"
                 fi
 
                 # Use perl for the wait loop. After the claude pipeline bash 3.2
@@ -553,6 +575,7 @@ EOF
                 # to the parent bash process (SIGTERM is not affected by the
                 # pipeline SIG_IGN issue).
                 local bash_pid=$$
+                log DEBUG "Starting perl sleep: ${wait_seconds}s until $resume_human (resume_at=$resume_at)"
                 /usr/bin/perl -e '
                     my ($ppid, $resume_at) = @ARGV;
                     $SIG{INT} = sub { kill "TERM", $ppid; exit 130; };
@@ -564,8 +587,12 @@ EOF
                         sleep($step);
                     }
                 ' "$bash_pid" "$resume_at"
+                log DEBUG "Perl sleep complete"
 
-                [[ -n "${CAFFEINATE_PID:-}" ]] && kill "$CAFFEINATE_PID" 2>/dev/null || true
+                if [[ -n "${CAFFEINATE_PID:-}" ]]; then
+                    log DEBUG "Stopping caffeinate (PID: $CAFFEINATE_PID)"
+                    kill "$CAFFEINATE_PID" 2>/dev/null || true
+                fi
                 CAFFEINATE_PID=""
             fi
 
@@ -579,26 +606,6 @@ EOF
             error "$exit_code" "Claude exited with error (exit code: $exit_code). See $SESSION_EVENTS for details."
         else
             log "Claude exited cleanly."
-
-            # Log the full result event so we can inspect what caused the clean exit
-            # (e.g. normal completion vs. /compact stopping the session).
-            if [[ -f "$SESSION_EVENTS" ]]; then
-                local last_result_line
-                last_result_line=$(grep -E '"type"\s*:\s*"result"' "$SESSION_EVENTS" | tail -1 || true)
-                if [[ -n "$last_result_line" ]]; then
-                    local result_subtype result_is_error result_stop_reason result_text
-                    result_subtype=$(echo "$last_result_line" | jq -r '.subtype // "(none)"' 2>/dev/null || echo "(parse error)")
-                    result_is_error=$(echo "$last_result_line" | jq -r '.is_error // "(none)"' 2>/dev/null || echo "(parse error)")
-                    result_stop_reason=$(echo "$last_result_line" | jq -r '.stop_reason // "(none)"' 2>/dev/null || echo "(parse error)")
-                    result_text=$(echo "$last_result_line" | jq -r '.result // ""' 2>/dev/null | head -c 300 || echo "(parse error)")
-                    log DEBUG "[result] subtype=$result_subtype  is_error=$result_is_error  stop_reason=$result_stop_reason"
-                    [[ -n "$result_text" ]] && log DEBUG "[result] result text: ${result_text}"
-                    log DEBUG "[result] raw: ${last_result_line:0:500}"
-                else
-                    log DEBUG "[result] no result event found in session events"
-                fi
-            fi
-
             log "Session complete."
             break
         fi
