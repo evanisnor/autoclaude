@@ -282,7 +282,7 @@ interpret_event() {
                     TodoWrite)  input_summary="updating todo list" ;;
                     *)          input_summary=$(echo "$tool_json" | jq -r '.input | keys | join(", ")' 2>/dev/null) ;;
                 esac
-                log "  [$name] ${input_summary:0:120}"
+                log "[$name] ${input_summary:0:120}"
             done < <(echo "$line" | jq -c '.message.content[]? | select(.type == "tool_use")' 2>/dev/null || true)
             ;;
         result)
