@@ -31,12 +31,16 @@ Sessions are saved and resumed automatically — if `autoclaude` is restarted, i
 
 `autoclaude` launches `claude` in non-interactive mode with `--dangerously-skip-permissions` (yolo mode), streams its JSON output, and monitors for rate limit events. When a usage limit is hit, it reads the reset timestamp from the event stream, sleeps until 2 minutes after the reset, then resumes the same session automatically. This repeats until Claude exits cleanly.
 
+To maintain optimal context window performance it is recommended to let autoclaude manage claude sessions automatically. This requires installing a hook to your project by executing claude once with the `--install-hook` flag. Read more about how this works in the [Context Management for Long-Running Projects](#context-management-for-long-running-projects) section.
+
+
 ## Usage
 
 ```bash
 autoclaude                                    # Resume saved session, or start new
                                               # Uses `autoclaude/prompt.md` as the prompt
 
+autoclaude --install-hook                     # Install the `new-session-on-todos-complete` hook
 autoclaude --new                              # Force a new session (discards saved session ID)
 autoclaude -p "Build the login page"          # Use a text prompt
 autoclaude --prompt-file my-prompt.md         # Use a specific prompt file
@@ -52,6 +56,7 @@ autoclaude --model opus                       # Override the model
 | `--new` | Force a new session, discarding any saved session ID |
 | `-p`, `--prompt <text>` | Use the given text as the prompt |
 | `--prompt-file <file>` | Load the prompt from a file instead of the default location |
+| `--install-hook` | Install the `new-session-on-todos-complete` hook into the current project |
 | `--path-to-claude <path>` | Override the path to the `claude` binary (default: `claude` on `PATH`) |
 | `--model <model>` | Override the model (default: `sonnet`) |
 | `--debug` | Enable debug logging (written to stdout and `autoclaude.log`) |
@@ -91,13 +96,30 @@ Any model identifier accepted by the `claude` CLI can be used.
 |------|-------------|
 | `autoclaude.log` | Timestamped log of all runs, tool calls, rate limit events, and session activity |
 | `session_id` | The session ID from the most recent completed run, used for automatic resume |
-| `last_session.jsonl` | Raw stream-json event lines from the last Claude invocation |
+| `last_session.json` | Raw stream-json event lines from the last Claude invocation |
 | `run_state` | Transient file written during a run to pass session ID and reset timestamps out of the stream processor subshell |
+| `new_session_requested` | Signal file written by the `new-session-on-task-complete` hook when all of Claude's todos are complete. This tells autoclaude to start a new session with fresh context automatically. |
 
 ⚠️ Add this directory to your `.gitignore` file:
 ```
 .autoclaude/
 ```
+
+## Context Management for Long-Running Projects
+
+Over a long session, Claude's context window fills with tool call history, intermediate results, and prior work — degrading performance on tasks that require careful recall. Running each project task in its own fresh session prevents this.
+
+autoclaude supports automatic session rotation via a Claude hook. When all of Claude's todos are completed, the hook signals autoclaude to start a new session instead of resuming, so each project task begins with a full context window.
+
+Install the hook by running the following command:
+
+```bash
+autoclaude --install-hook
+```
+
+### How it works
+
+Claude uses a built-in todo list (via `TodoWrite`) to track its own progress within a session. This is separate from your project's task backlog. After each `TodoWrite` call, the installed hook checks whether any todos remain incomplete. When all are done, it writes `.autoclaude/new_session_requested` and injects an exit prompt into Claude's next turn. On clean exit, autoclaude detects the signal, discards the session ID, and loops back — starting fresh with the same prompt.
 
 ## Security Considerations
 

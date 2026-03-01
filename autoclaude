@@ -66,6 +66,7 @@ Prompt:
 
 Usage:
   ./autoclaude                                     # Resume saved session, or start new
+  ./autoclaude --install-hook                      # Install the `new-session-on-todos-complete` hook
   ./autoclaude --new                               # Force a new session
   ./autoclaude -p "Build the login page"           # Use a text prompt
   ./autoclaude --prompt-file my-prompt.md          # Use a custom prompt file
@@ -86,6 +87,7 @@ CLAUDE_BIN="${CLAUDE_BIN:-claude}"
 MODEL="sonnet"
 
 CONFIG_DIR="$PROJECT_DIR/autoclaude"
+HOOK_SCRIPT_NAME="new-session-on-todos-complete.sh"
 
 
 yellow=$'\033[33m'
@@ -204,6 +206,95 @@ check_credential_deny_rules() {
     fi
 }
 
+# ---------------------------------------------------------------------------
+# install_hook: write the new-session-on-todos-complete hook script and
+# register it in .claude/settings.json using jq.
+# ---------------------------------------------------------------------------
+install_hook() {
+    local hooks_dir="$PROJECT_DIR/.claude/hooks"
+    local hook_file="$hooks_dir/$HOOK_SCRIPT_NAME"
+    local settings_file="$PROJECT_DIR/.claude/settings.json"
+
+    # Write the hook script
+    mkdir -p "$hooks_dir"
+    cat > "$hook_file" <<'HOOK_SCRIPT'
+#!/usr/bin/env bash
+# new-session-on-todos-complete.sh
+#
+# PostToolUse hook: fires after every TodoWrite call.
+#
+# Claude's built-in todo system is session-level work tracking — separate
+# from your project's task backlog. Claude typically creates internal todos
+# to organize progress toward one of your project tasks, then marks them
+# completed as it goes.
+#
+# When Claude marks a todo completed, this hook signals autoclaude to start
+# a NEW session after Claude exits, giving the next project task a full,
+# clean context window instead of inheriting accumulated session history.
+
+set -euo pipefail
+
+INPUT=$(cat)
+
+# TodoWrite tool_input shape: { todos: [{ id, content, status, priority }] }
+# Only signal a new session when ALL todos are completed — Claude creates
+# multiple todos per project task, so triggering on the first completion
+# would restart the session mid-task. A fully-completed list means Claude
+# has finished its current batch of work.
+REMAINING=$(printf '%s' "$INPUT" | jq -r '
+  [.tool_input.todos[]? | select(.status != "completed")] | length
+' 2>/dev/null)
+
+if [[ "$REMAINING" == "0" && -n "$REMAINING" ]]; then
+  # Signal autoclaude to start a new session after this one ends.
+  mkdir -p "$PWD/.autoclaude"
+  touch "$PWD/.autoclaude/new_session_requested"
+
+  # Ask Claude to stop so autoclaude can restart with a fresh context window.
+  printf 'All todos completed. Exit your current turn now — autoclaude will automatically start a new session with a full context window for the next project task.\n'
+fi
+HOOK_SCRIPT
+    chmod +x "$hook_file"
+    log "Hook script written: ${hook_file#"$PROJECT_DIR/"}"
+
+    # Upsert the hook registration into .claude/settings.json
+    local tmp_file
+    tmp_file=$(mktemp)
+
+    local base_json="{}"
+    [[ -f "$settings_file" ]] && base_json=$(cat "$settings_file")
+
+    # Merge: remove any existing TodoWrite matcher entry, then append the new one.
+    # Preserves all other settings and hook entries.
+    printf '%s' "$base_json" | jq --arg hook_cmd ".claude/hooks/$HOOK_SCRIPT_NAME" '
+      .hooks.PostToolUse = (
+        ([(.hooks.PostToolUse // [])[] | select(.matcher != "TodoWrite")])
+        + [{
+            "matcher": "TodoWrite",
+            "hooks": [{
+              "type": "command",
+              "command": $hook_cmd,
+              "timeout": 5
+            }]
+          }]
+      )
+    ' > "$tmp_file"
+
+    mkdir -p "$PROJECT_DIR/.claude"
+    mv "$tmp_file" "$settings_file"
+    log "Hook registered in: ${settings_file#"$PROJECT_DIR/"}"
+
+    echo ""
+    banner "$green" "Hook installed successfully
+  script:   .claude/hooks/$HOOK_SCRIPT_NAME
+  settings: .claude/settings.json
+
+When all of Claude's todos are completed, autoclaude will
+automatically start a new session for the next project task.
+
+Run 'autoclaude' to start with automatic session management."
+}
+
 banner() {
     local color="${1}"
     shift
@@ -317,9 +408,11 @@ EOF
     local prompt_file=""
     local path_to_claude=""
     local model_override=""
+    local do_install_hook=false
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --usage)              usage; exit 0 ;;
+            --install-hook)       do_install_hook=true;               shift ;;
             --new)                force_new=true;                      shift ;;
             --debug)              DEBUG=true;                          shift ;;
             --utc)                UTC=true;                            shift ;;
@@ -334,6 +427,11 @@ EOF
             *)                    shift ;;
         esac
     done
+
+    if [[ "$do_install_hook" == true ]]; then
+        install_hook
+        exit 0
+    fi
 
     if [[ -n "$prompt_text" && -n "$prompt_file" ]]; then
         error "Cannot use both -p/--prompt and --prompt-file. Pick one."
@@ -604,6 +702,14 @@ EOF
             fi
         elif [[ $exit_code -ne 0 ]]; then
             error "$exit_code" "Claude exited with error (exit code: $exit_code). See $SESSION_EVENTS for details."
+        elif [[ -f "$STATE_DIR/new_session_requested" ]]; then
+            log "Claude exited cleanly."
+            rm -f "$STATE_DIR/new_session_requested"
+            rm -f "$SESSION_FILE"
+            resume_flag=""
+            echo ""
+            banner "$green" "Task complete — starting new session with fresh context."
+            echo ""
         else
             log "Claude exited cleanly."
             log "Session complete."
