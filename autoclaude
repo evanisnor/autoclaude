@@ -207,6 +207,56 @@ check_credential_deny_rules() {
 }
 
 # ---------------------------------------------------------------------------
+# Gitignore check: ensure .autoclaude is listed in .gitignore so session
+# state and logs are not accidentally committed.
+# ---------------------------------------------------------------------------
+check_gitignore() {
+    local gitignore_file="$PROJECT_DIR/.gitignore"
+    local skip_signal="$STATE_DIR/skip_gitignore_check"
+
+    # User previously chose to never be asked again.
+    [[ -f "$skip_signal" ]] && return 0
+
+    # Already present — nothing to do.
+    if [[ -f "$gitignore_file" ]] && grep -qxF ".autoclaude" "$gitignore_file"; then
+        return 0
+    fi
+
+    echo "" >&2
+    banner "$yellow" ".autoclaude is not in your .gitignore
+
+  The .autoclaude directory stores session state and logs.
+  It should be excluded from version control to avoid
+  accidentally committing session data."
+    echo "" >&2
+    echo "  ${yellow}Add '.autoclaude' to ${gitignore_file#"$PROJECT_DIR/"}?${reset}" >&2
+    echo "" >&2
+    echo "  ${bold}[y]${reset} Yes, add it now" >&2
+    echo "  ${bold}[n]${reset} No, skip for now (will ask again next run)" >&2
+    echo "  ${bold}[d]${reset} No, and don't ask again" >&2
+    echo "" >&2
+
+    local answer answer_lower
+    read -r -p "  Choice [y/n/d]: " answer </dev/tty
+    answer_lower="$(echo "$answer" | tr '[:upper:]' '[:lower:]')"
+
+    case "$answer_lower" in
+        y|yes)
+            echo ".autoclaude" >> "$gitignore_file"
+            log "Added .autoclaude to ${gitignore_file#"$PROJECT_DIR/"}"
+            ;;
+        d|don\'t|dont|never)
+            touch "$skip_signal"
+            log "Gitignore check suppressed. Remove $skip_signal to re-enable."
+            ;;
+        *)
+            log DEBUG "Gitignore check skipped by user (will prompt again next run)."
+            ;;
+    esac
+    echo "" >&2
+}
+
+# ---------------------------------------------------------------------------
 # install_hook: write the new-session-on-todos-complete hook script and
 # register it in .claude/settings.json using jq.
 # ---------------------------------------------------------------------------
@@ -459,6 +509,7 @@ EOF
 
     check_bypass_permissions_mode
     check_credential_deny_rules
+    check_gitignore
 
     local saved_session=""
     [[ -f "$SESSION_FILE" ]] && saved_session="$(cat "$SESSION_FILE")"

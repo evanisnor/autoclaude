@@ -99,11 +99,7 @@ Any model identifier accepted by the `claude` CLI can be used.
 | `last_session.json` | Raw stream-json event lines from the last Claude invocation |
 | `run_state` | Transient file written during a run to pass session ID and reset timestamps out of the stream processor subshell |
 | `new_session_requested` | Signal file written by the `new-session-on-task-complete` hook when all of Claude's todos are complete. This tells autoclaude to start a new session with fresh context automatically. |
-
-⚠️ Add this directory to your `.gitignore` file:
-```
-.autoclaude/
-```
+| `skip_gitignore_check` | Signal file written when you choose "don't ask again" at the `.gitignore` prompt. Delete this file to re-enable the check. |
 
 ## Context Management for Long-Running Projects
 
